@@ -1,0 +1,226 @@
+---
+title: "Netflix Userbase Dataset Analysis"
+author: "William L."
+format: 
+  html:
+    self-contained: True
+---
+
+#### About
+
+The Netflix Userbase Dataset offers a snapshot of a sample of Netflix userbase,
+highlighting various aspects such as user subscriptions, revenue, account details,
+and activity. Each row corresponds to a unique user, all of which are identified
+by their User ID. Expect to see details such as subscription type, monthly
+revenue, join date, last payment due, and country.
+
+Additional columns provide insights into user behavior and preferences, such as
+Device Type and account status.
+
+#### Intro
+
+I will be utilizing the graphic capabilities from R while delving into the
+essential demographic intricacies of Netflix users. Grasping demographics of
+users is quite crucial for companies to refine their strategic objectives,
+elevate user experience, and enhance marketing initiatives.
+
+#### R Packages
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(scales)
+library(RColorBrewer)
+```
+
+#### Unpacking dataset
+
+This will be the dataset that I intend on using for analysis.
+
+```{r}
+netflix <- read.csv("Netflix Userbase.csv")
+
+```
+
+```{r}
+# Examining first 5 rows of dataset
+
+head(netflix)
+
+```
+
+```{r}
+# Counting number of users for each subscription
+
+netflix %>%
+  group_by('Subscription Type') %>%
+  summarize('Monthly Revenue' = n())
+```
+
+```{r}
+df <- data.frame(Type = c("Basic", "Premium", "Standard"),
+                 value = c(999, 733, 768))
+bp <- ggplot(df, aes(x = "",
+                     y = value,
+                     fill = Type)) +
+  geom_bar(width = 1,
+           stat = "identity")
+pie1 <- bp + coord_polar ("y", start = 0)
+blank_theme <- theme_minimal() + theme(axis.title.x = element_blank(),
+                                       axis.title.y = element_blank(),
+                                       panel.border = element_blank(),
+                                       panel.grid = element_blank(),
+                                       axis.ticks = element_blank(),
+                                       plot.title = element_text(size = 14,
+                                                                 face = 'bold'))
+```
+
+
+#### Distribution of Subscription
+
+```{r}
+# Piechart
+
+pie1 + scale_fill_manual(values = c("lightblue", "blue", "navy")) +
+  blank_theme + theme(axis.title.x = element_blank(),
+                      plot.title = element_text(size = 15)) +
+  ggtitle("Distribution of Subscription Type") +
+  geom_text(aes(y = value/3 + c(0, cumsum(value) [-length(value)]),
+                label = percent(value/2500)), size = 7)
+```
+
+```{r}
+# Barplot of dataframe
+
+bp <- ggplot(df, aes(x = "",
+                     y = value,
+                     fill = Gender)) +
+  geom_bar(width = 1, stat = "identity")
+pie <- bp + coord_polar("y", start = 0)
+blank_theme <- theme_minimal() +
+  theme(
+    axis.title.x = element_blank(),
+    axis.title.y = element_blank(),
+    panel.border = element_blank(),
+    panel.grid = element_blank(),
+    axis.ticks = element_blank(),
+    plot.title = element_text(size = 15, face = "bold")
+  )
+```
+
+#### Distribution of Age
+
+```{r}
+# Histogram Visualization
+
+p <- netflix %>%
+  filter(Age<100) %>%
+  ggplot( aes(x= Age)) +
+    geom_histogram( binwidth=1, fill="lightblue", color="white", alpha=0.9) +
+    ggtitle("Distribution of User Age") +  ylab("Frequency") +
+    theme(
+      plot.title = element_text(size=14, face = "bold")
+    )
+p
+```
+
+#### Distribution of users via device type
+
+```{r}
+data<- netflix %>% group_by (`Device`) %>% summarize (`Device` = n())
+data <- data.frame(category = c("Smartphone", "Tablet", "Smart TV", "Laptop"), 
+        count = c(636, 610, 621, 633)) 
+
+# Percentage Computation
+data$fraction <- (data$count / sum(data$count)) *100
+
+# Cumulative percentages
+data$ymax <- cumsum(data$fraction)
+
+# Bottom of each rectangle computation
+data$ymin <- c(0, head(data$ymax, n=-1))
+
+# Label Position Computation
+data$labelPosition <- (data$ymax + data$ymin) / 2
+
+# Label
+data$label <- paste0(data$category, "\n", data$fraction, "%")
+
+# Plot
+ggplot(data, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=category)) +
+  geom_rect(color = "white") +
+  geom_label(x=3.5, aes(y=labelPosition, label=label), size=5) +
+  ggtitle("Device Distribution")+
+  scale_fill_manual(values = c("blue", "#f5f5f1","navy","lightblue")) +
+  coord_polar(theta="y") + 
+  xlim(c(2, 4)) +
+  theme_void() +
+  theme(legend.position = "none",  plot.title = element_text(size=14,face = "bold"))
+```
+
+```{r}
+data_country <- netflix %>% 
+count (netflix$Country) %>% 
+rename(Country = "netflix$Country") 
+
+data_country <- data_country %>%
+  mutate(Country = ifelse(Country == "United States", "USA",
+                   ifelse(Country == "United Kingdom", "UK", Country)))
+
+world_map <- map_data ("world")
+total_map <- full_join(data_country, world_map, by = c("Country" = "region"))
+
+scale_fill_gradient(
+  name = waiver(),
+  low = "lightblue",
+  high = "navy",
+  space = "Lab",
+  na.value = "grey50",
+  guide = "colourbar",
+  aesthetics = "fill"
+)
+```
+
+#### Users Distribution
+
+```{r}
+options(repr.plot.width = 14, repr.plot.height = 8)
+ggplot(total_map, aes(long, lat, group=group)) +
+  geom_polygon(aes(fill = n),color="white") +
+  scale_fill_gradient(low = "lightblue", high = "navy") + 
+  theme_void() + 
+  ggtitle ('Distribution of Global Users') +
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.border = element_blank(),
+  panel.grid=element_blank(),
+  axis.ticks = element_blank(),
+  plot.title=element_text(size=15, face="bold")
+  )
+```
+
+#### Type of Subscription (by country)
+
+```{r}
+library(ggplot2)
+
+data_test2 <- data.frame(
+  Subscription = rep(c('Basic', 'Premium', 'Standard'), each = 10),
+  Country = rep(c('Australia', 'Brazil', 'Canada', 'France', 'Germany', 
+                  'Italy', 'Mexico', 'Spain', 'United Kingdom', 'United States'), times = 3),
+  Users = c(31, 146, 145, 36, 149, 176, 4, 110, 3, 199,   
+            101,  33, 88, 147, 3, 4, 0, 212, 145, 0,  
+           51, 4, 84, 0,31,3,179,129,180,107))
+
+ggplot(data_test2, aes(x = Subscription, y = Users, fill = Country)) + theme_void()+
+  ggtitle ('Subscription Distribution Per Country') +
+  geom_bar(stat = "identity", position = "stack") +
+  labs( x = "Subscription Plan", y = "Number of Users") + theme_minimal()+ 
+  theme(plot.title=element_text(size=15, face="bold"), 
+       axis.title.x = element_text (size = 15), 
+       axis.title.y = element_text(size = 15),
+       legend.title = element_text (size = 12)
+       )
+```
+
